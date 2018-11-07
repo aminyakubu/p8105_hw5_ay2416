@@ -71,20 +71,56 @@ Summary statistics
 Summarize within cities to obtain the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”).
 
 ```{r}
-x = hom_df %>% 
+summ_df = hom_df %>% 
   mutate(disposition = fct_collapse(hom_df$disposition, "No arrest" = c("Closed without arrest","Open/No arrest"))) %>% group_by(city_state) %>% 
   count(disposition) %>% 
   spread(key = disposition, value = n) %>% 
   janitor::clean_names() %>% 
-  mutate(total = closed_by_arrest + no_arrest,
-         percent_no_arrest = (no_arrest/total)*100)
+  mutate(total = closed_by_arrest + no_arrest)
 
-  prop.test(x$no_arrest, x$total) %>% broom::tidy()
+```
+
+For the city of Baltimore, MD, use the prop.test function to estimate the proportion of homicides that are unsolved; save the output of prop.test as an R object, apply the broom::tidy to this object and pull the estimated proportion and confidence intervals from the resulting tidy dataframe.
+
+```{r}
+y = x %>% filter(city_state == "Baltimore, MD")
+
+prop.test(y[[2]], y[[4]]) %>% broom::tidy() %>% .[1:6] %>% 
+  select(-statistic, -p.value, -parameter) %>% 
+  mutate(city_state = y$city_state) %>% 
+  select(city_state, everything())
   
 ```
 
+Now run prop.test for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of purrr::map, purrr::map2, list columns and  unnest as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
+
+Writing a function for `prop.test`
+
+```{r}
+prop_test_fx = function(data, state){
+  
+  y = data %>% filter(city_state == state)
+  
+  x_out = prop.test(y[[2]], y[[4]]) %>% broom::tidy() %>% .[1:6] %>% 
+  select(-statistic, -p.value, -parameter) %>% 
+  mutate(city_state = y$city_state) %>% 
+  select(city_state, everything())
+  
+  list(x_out)
+  
+}
+```
+
+Applying the function
+
+```{r}
+prop_test_fx(data = summ_df, state = )
+```
 
 
+```{r}
+map2(summ_df, summ_df$city_state, prop_test_fx)
+```
 
 
 
