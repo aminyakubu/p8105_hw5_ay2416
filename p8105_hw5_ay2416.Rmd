@@ -71,7 +71,16 @@ Summary statistics
 Summarize within cities to obtain the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”).
 
 ```{r}
+x = hom_df %>% 
+  mutate(disposition = fct_collapse(hom_df$disposition, "No arrest" = c("Closed without arrest","Open/No arrest"))) %>% group_by(city_state) %>% 
+  count(disposition) %>% 
+  spread(key = disposition, value = n) %>% 
+  janitor::clean_names() %>% 
+  mutate(total = closed_by_arrest + no_arrest,
+         percent_no_arrest = (no_arrest/total)*100)
 
+  prop.test(x$no_arrest, x$total) %>% broom::tidy()
+  
 ```
 
 
