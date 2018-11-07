@@ -1,0 +1,55 @@
+---
+title: "Homework 5"
+author: "Amin Yakubu"
+date: "11/6/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+Unzipping the file and 
+```{r}
+plyr::ldply(.data = "./data/hw5_data.zip", .fun = unzip)
+
+```
+
+Extracting the filepaths and names into lists
+```{r}
+filepaths = list.files("./data", pattern = "*.csv", full.names = TRUE)
+
+filenames = basename(filepaths)
+```
+
+Writing function to read the data
+
+```{r}
+read_fx = function(data, name){
+  
+  list(read_csv(file = data) %>% mutate(id = name))
+  
+}
+
+```
+
+NOw iterating using `map` function to read all the csv files and bind them together
+
+```{r}
+x = purrr::map2(filepaths, filenames, read_fx)
+
+df = purrr::map_df(x, bind_rows)
+
+tidy_data = df %>%
+  gather(key = week, value = value, week_1:week_8) %>% 
+  mutate(id = str_replace(id, ".csv",""),
+         week = str_replace(week, "week_", "")) %>% 
+  separate(id, into = c("group", "id"), sep = "_")
+
+ggplot(tidy_data, aes(x = week, y = value, group = id)) + geom_line()
+```
+
