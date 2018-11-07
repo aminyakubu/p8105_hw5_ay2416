@@ -47,9 +47,10 @@ df = purrr::map_df(x, bind_rows)
 tidy_data = df %>%
   gather(key = week, value = value, week_1:week_8) %>% 
   mutate(id = str_replace(id, ".csv",""),
-         week = str_replace(week, "week_", "")) %>% 
-  separate(id, into = c("group", "id"), sep = "_")
+         week = as.numeric(str_replace(week, "week_", ""))) %>% 
+  separate(id, into = c("group", "id"), sep = "_") %>% 
+  mutate(id = as.factor(id))
 
-ggplot(tidy_data, aes(x = week, y = value, group = id)) + geom_line()
+ggplot(tidy_data, aes(x = week, y = value, color = id, group = id)) + geom_point() + geom_line() + facet_grid(~group) 
 ```
 
