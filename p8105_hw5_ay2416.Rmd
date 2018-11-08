@@ -99,7 +99,7 @@ Writing a function for `prop.test`
 ```{r}
 prop_test_fx = function(data, state){
   
-  y = data %>% filter(city_state == state)
+  y = data %>% filter(city_state == "state")
   
   x_out = prop.test(y[[2]], y[[4]]) %>% broom::tidy() %>% .[1:6] %>% 
   select(-statistic, -p.value, -parameter) %>% 
@@ -109,23 +109,98 @@ prop_test_fx = function(data, state){
   list(x_out)
   
 }
+
+states <- as.tibble(summ_df$city_state)
+
+map2(summ_df, states, prop_test_fx)
 ```
 
 Applying the function
 
 ```{r}
-prop_test_fx(data = summ_df, state = )
+prop_test_fx(data = summ_df, state = "Baltimore, MD")
+```
+
+```{r}
+
+x = as.numeric(pull(nest_df$data[[2]][2]))
+
+b = as.numeric(pull(nest_df$data[[2]][3]))
+
+prop.test(x, b)%>% broom::tidy() %>% .[1:6] %>% 
+  select(-statistic, -p.value, -parameter) %>% 
+  mutate(city_state = nest_df$city_state[2]) %>% 
+  select(city_state, everything())
+
+
+
+prop_test_fx = function(i){
+  
+  x = as.numeric(pull(nest_df$data[[i]][2]))
+
+  b = as.numeric(pull(nest_df$data[[i]][3]))
+  
+  try(data.frame(prop.test(x, b) %>% broom::tidy() %>% .[1:6] %>% 
+  select(-statistic, -p.value, -parameter) %>% 
+  mutate(city_state = nest_df$city_state[i]) %>% 
+  select(city_state, everything())), silent = TRUE)
+
+}
+
+
+nums = 1:51
+
+final = map(nums, prop_test_fx)
+
+final[-!is.character(final)] %>% View
+
+final[-49] %>% View
+
+final %>% .[[49]]
+
+final[10] <- NULL
+
+XXX = try(bind_rows(final), silent = TRUE)
+
+
+foo <- list(df1 = data.frame(A = rnorm(3), B = rnorm(3)),
+            df2 = data.frame(C = rnorm(3), B = rnorm(3)),
+            df3 = data.frame(C = rnorm(3), A = rnorm(3)))
+
+bind_rows(foo)
+states %>% mutate(final = map(nums, prop_test_fx)) %>% View
+
+final1 = bind_rows(final)
 ```
 
 
 ```{r}
-map2(summ_df, summ_df$city_state, prop_test_fx)
+map2(summ_df, states[x], prop_test_fx)
 ```
 
 
 
 
 
+```{r}
+prop_test_fx = function(data, i){
+  
+  y = summ_df[seq(i, i),]
+  
+  x_out = prop.test(y[[3]], y[[4]]) %>% broom::tidy() %>% .[1:6] %>% 
+  select(-statistic, -p.value, -parameter) %>% 
+  mutate(city_state = y$city_state) %>% 
+  select(city_state, everything())
+  
+  list(x_out)
+  
+}
+
+nums = list(1:51)
+
+
+map2(summ_df, nums, prop_test_fx)
+```
 
 
 
