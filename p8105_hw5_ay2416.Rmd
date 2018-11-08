@@ -14,54 +14,48 @@ library(tidyverse)
 library(plotly)
 ```
 
+
 ### Problem 1 
-
-Unzipping the file and 
-```{r}
-plyr::ldply(.data = "./data/hw5_data.zip", .fun = unzip)
-
-```
 
 Extracting the filepaths and names into lists
 ```{r}
-filepaths = list.files("./data", pattern = "*.csv", full.names = TRUE)
 
-filenames = basename(filepaths)
+paths_and_names = tibble(filepath = list.files("./data/", pattern = "*.csv", full.names = TRUE),
+                         filename = basename(filepath))
 ```
 
 Writing function to read the data
 
 ```{r}
-read_fx = function(data, name){
+read_fx = function(data){
   
-  list(read_csv(file = data) %>% mutate(id = name))
+  read_csv(file = data)
   
 }
 
 ```
 
-Now iterating using `map` function to read all the csv files and bind them together
+Now iterating using `map` function to read all the csv files and cleaning the data
 
 ```{r}
-names_and_paths = purrr::map2(filepaths, filenames, read_fx)
 
-df = purrr::map_df(names_and_paths, bind_rows)
-
-tidy_data = df %>%
+df = paths_and_names %>% mutate(data =  purrr::map(paths_and_names$filepath, read_fx)) %>% 
+  unnest() %>% 
+  select(-filepath) %>% 
   gather(key = week, value = value, week_1:week_8) %>% 
-  mutate(id = str_replace(id, ".csv",""),
+  mutate(id = str_replace(filename, ".csv",""),
          week = as.numeric(str_replace(week, "week_", ""))) %>% 
   separate(id, into = c("group", "id"), sep = "_") %>% 
   mutate(id = as.factor(id))
 
-ggplot(tidy_data, aes(x = week, y = value, color = id, group = id)) + geom_point() + geom_line() + facet_grid(~group) 
+ggplot(df, aes(x = week, y = value, color = id, group = id)) + geom_point() + geom_line() + facet_grid(~group) +
+  theme(legend.position = "bottom")
 ```
-
 
 ## Problem 2
 
 ```{r}
-hom_df = read_csv("data/data_problem2/homicide-data.csv", col_names = TRUE) %>% 
+hom_df = read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv", col_names = TRUE) %>% 
   mutate(city_state = str_c(city, ",", " ", state))
 ```
 
@@ -86,49 +80,23 @@ For the city of Baltimore, MD, use the prop.test function to estimate the propor
 ```{r}
 baltimore = summ_df %>% filter(city_state == "Baltimore, MD")
 
-prop.test(baltimore[[3]], baltimore[[4]]) %>% broom::tidy() %>% .[c(1, 5, 6)] %>% 
-  mutate(city_state = baltimore$city_state) %>% 
-  select(city_state, everything())
+prop.test(baltimore$no_arrest, baltimore$total) %>% 
+  broom::tidy() %>% 
+  select(estimate, conf.low, conf.high) %>% 
+  janitor::clean_names() %>% 
+  knitr::kable()
 ```
 
 Now run prop.test for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of purrr::map, purrr::map2, list columns and  unnest as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
 
-Writing a function for `prop.test`
-
-First creating a nested dataset 
+Writing a function for `prop.test` and cleaning data
 
 ```{r}
-
-nested_summary = nest(summ_df, closed_by_arrest:total)
-
-# Testing the indices of my nested data
-
-#taking the second row(city), and then 2nd variable in the nested data
-x = as.numeric(pull(nested_summary$data[[2]][2]))
-
-#taking the second row(city), and then 3rd variable in the nested data
-b = as.numeric(pull(nested_summary$data[[2]][3]))
-
-#computing proportion and CI
-prop.test(x, b) %>% broom::tidy() %>% .[c(1, 5, 6)] %>% 
-  mutate(city_state = nested_summary$city_state[2]) %>% 
-  select(city_state, everything())
-
-#Function with just one input determing the row of data. `Try` added to overlook errors
-
-prop_test_fx = function(i){
+prop_test = function(data_table){
   
-  x = as.numeric(pull(nested_summary$data[[i]][2]))
-
-  b = as.numeric(pull(nested_summary$data[[i]][3]))
-  
-  try(data.frame(prop.test(x, b) %>% 
-                   broom::tidy() %>% 
-                   .[1:6] %>% 
-                   select(-statistic, -p.value, -parameter) %>% 
-                   mutate(city_state = nested_summary$city_state[i]) %>% 
-                   select(city_state, everything())), silent = TRUE)
-
+  try(prop.test(data_table$no_arrest, data_table$total) %>% 
+    broom::tidy() %>% 
+    select(estimate, conf.low, conf.high), silent = TRUE)
 }
 
 ```
@@ -136,27 +104,16 @@ prop_test_fx = function(i){
 Iteration
 
 ```{r}
-#list of rows to iterate
-
-num = 1:51
-
-ci = map(.x = num, ~ prop_test_fx(.x))
-
-city_and_state = as.tibble(summ_df$city_state)
-
-ci_for_states = city_and_state %>% mutate(data = ci) %>% filter(value != "Tulsa, AL")
-
-unnested_ci_for_states = bind_rows(ci_for_states) %>% unnest(ci_for_states$data) %>% janitor::clean_names() 
-
+unnested_ci_for_states = summ_df %>% group_by(city_state) %>% nest() %>% 
+  mutate(estimate_ci = map(data, prop_test)) %>% filter(city_state != "Tulsa, AL") %>% unnest() %>% 
+  mutate(city_state = reorder(city_state, estimate)) %>% janitor::clean_names()
 ```
 
 Create a plot that shows the estimates and CIs for each city – check out geom_errorbar for a way to add error bars based on the upper and lower limits. Organize cities according to the proportion of unsolved homicides.
 
 ```{r}
-unnested_ci_for_states %>% 
-  mutate(city_state = factor(city_state, estimate))
 
-ggplot(unnested_ci_for_states, aes(x = reorder(city_state, estimate), y = estimate )) + 
+ggplot(unnested_ci_for_states, aes(x = city_state, y = estimate )) + 
   geom_point() + geom_errorbar(aes(ymin = conf_low, ymax = conf_high)) + 
   theme(axis.text.x = element_text(angle = 80, hjust = 1, size = 8)) +
   labs(
@@ -165,52 +122,6 @@ ggplot(unnested_ci_for_states, aes(x = reorder(city_state, estimate), y = estima
   )
 
 ```
-
--------------------------------------------------------------------------------
------------------------------------------------------------------------------
-
-#############
-
-prop_test_fx = function(data, i){
-  
-  y = summ_df[seq(i, i),]
-  
-  x_out = prop.test(y[[3]], y[[4]]) %>% broom::tidy() %>% .[1:6] %>% 
-  select(-statistic, -p.value, -parameter) %>% 
-  mutate(city_state = y$city_state) %>% 
-  select(city_state, everything())
-  
-  list(x_out)
-  
-}
-
-nums = list(1:51)
-
-
-map2(summ_df, nums, prop_test_fx)
-
-
-prop_test_fx = function(data, state){
-  
-  y = data %>% filter(city_state == "state")
-  
-  x_out = prop.test(y[[2]], y[[4]]) %>% broom::tidy() %>% .[1:6] %>% 
-  select(-statistic, -p.value, -parameter) %>% 
-  mutate(city_state = y$city_state) %>% 
-  select(city_state, everything())
-  
-  list(x_out)
-  
-
-states <- as.tibble(summ_df$city_state)
-
-map2(summ_df, states, prop_test_fx)
-
-
-prop_test_fx(data = summ_df, state = "Baltimore, MD")
-
-
-
 
 
 
