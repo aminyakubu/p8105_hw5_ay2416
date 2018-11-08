@@ -7,6 +7,7 @@ output: github_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
 ```
 
 ```{r}
@@ -37,7 +38,7 @@ read_fx = function(data){
 
 Now iterating using `map` function to read all the csv files and cleaning the data
 
-```{r}
+```{r, message = FALSE}
 
 df = paths_and_names %>% mutate(data =  purrr::map(paths_and_names$filepath, read_fx)) %>% 
   unnest() %>% 
@@ -59,11 +60,13 @@ hom_df = read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicid
   mutate(city_state = str_c(city, ",", " ", state))
 ```
 
-Describe dataset ---
+#### Description of dataset
+
+The Washington Post has collect data on `r nrow(hom_df)`criminal homicides over the past decade in 50 of the largest American cities. The dataset has `r nrow(hom_df)` observations x `r ncol(hom_df)` variables. Variables include victim information like name, age, sex, and race. Geographic information collected also include city, state, longitude and latitude information. Finally the variable `desposition` records whether the homicide case was closed without any arrest, still open with no arrest and closed due to arrest. 
 
 Summary statistics
 
-Summarize within cities to obtain the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”).
+#### Summarizing within cities to obtain the total number of homicides and the number of unsolved homicides 
 
 ```{r}
 summ_df = hom_df %>% 
@@ -72,24 +75,25 @@ summ_df = hom_df %>%
   spread(key = disposition, value = n) %>% 
   janitor::clean_names() %>% 
   mutate(total = closed_by_arrest + no_arrest)
-
 ```
 
-For the city of Baltimore, MD, use the prop.test function to estimate the proportion of homicides that are unsolved; save the output of prop.test as an R object, apply the broom::tidy to this object and pull the estimated proportion and confidence intervals from the resulting tidy dataframe.
+For the city of Baltimore, MD, using prop.test function to estimate the proportion of homicides that are unsolved
 
 ```{r}
 baltimore = summ_df %>% filter(city_state == "Baltimore, MD")
 
-prop.test(baltimore$no_arrest, baltimore$total) %>% 
+baltimore_prop = prop.test(baltimore$no_arrest, baltimore$total) %>% 
   broom::tidy() %>% 
   select(estimate, conf.low, conf.high) %>% 
   janitor::clean_names() %>% 
   knitr::kable()
+
+baltimore_prop
 ```
 
 Now run prop.test for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of purrr::map, purrr::map2, list columns and  unnest as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
 
-Writing a function for `prop.test` and cleaning data
+#### Writing a function to do `prop.test` and clean the data
 
 ```{r}
 prop_test = function(data_table){
@@ -101,7 +105,7 @@ prop_test = function(data_table){
 
 ```
 
-Iteration
+#### Iteration
 
 ```{r}
 unnested_ci_for_states = summ_df %>% group_by(city_state) %>% nest() %>% 
@@ -109,7 +113,7 @@ unnested_ci_for_states = summ_df %>% group_by(city_state) %>% nest() %>%
   mutate(city_state = reorder(city_state, estimate)) %>% janitor::clean_names()
 ```
 
-Create a plot that shows the estimates and CIs for each city – check out geom_errorbar for a way to add error bars based on the upper and lower limits. Organize cities according to the proportion of unsolved homicides.
+#### Creating a plot that shows the estimates and CIs for each city 
 
 ```{r}
 
