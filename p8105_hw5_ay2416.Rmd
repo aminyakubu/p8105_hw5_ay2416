@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+library(plotly)
 ```
 
 ### Problem 1 
@@ -42,9 +43,9 @@ read_fx = function(data, name){
 Now iterating using `map` function to read all the csv files and bind them together
 
 ```{r}
-x = purrr::map2(filepaths, filenames, read_fx)
+names_and_paths = purrr::map2(filepaths, filenames, read_fx)
 
-df = purrr::map_df(x, bind_rows)
+df = purrr::map_df(names_and_paths, bind_rows)
 
 tidy_data = df %>%
   gather(key = week, value = value, week_1:week_8) %>% 
@@ -60,7 +61,7 @@ ggplot(tidy_data, aes(x = week, y = value, color = id, group = id)) + geom_point
 ## Problem 2
 
 ```{r}
-hom_df = read_csv("data/homicide-data.csv", col_names = TRUE) %>% 
+hom_df = read_csv("data/data_problem2/homicide-data.csv", col_names = TRUE) %>% 
   mutate(city_state = str_c(city, ",", " ", state))
 ```
 
@@ -145,8 +146,25 @@ city_and_state = as.tibble(summ_df$city_state)
 
 ci_for_states = city_and_state %>% mutate(data = ci) %>% filter(value != "Tulsa, AL")
 
-unnested_ci_for_states = bind_rows(ci_for_states) %>% unnest(ci_for_states$data)
+unnested_ci_for_states = bind_rows(ci_for_states) %>% unnest(ci_for_states$data) %>% janitor::clean_names() 
 
+```
+
+Create a plot that shows the estimates and CIs for each city – check out geom_errorbar for a way to add error bars based on the upper and lower limits. Organize cities according to the proportion of unsolved homicides.
+
+```{r}
+unnested_ci_for_states %>% 
+  mutate(city_state = factor(city_state, estimate))
+
+error_plot = ggplot(unnested_ci_for_states, aes(x = reorder(city_state, estimate), y = estimate )) + 
+  geom_point() + geom_errorbar(aes(ymin = conf_low, ymax = conf_high)) + 
+  theme(axis.text.x = element_text(angle = 80, hjust = 1, size = 8)) +
+  labs(
+    x = "City, State",
+    y = "Proportion (95% Confidence interval)"
+  )
+
+ggplotly(error_plot)
 ```
 
 -------------------------------------------------------------------------------
