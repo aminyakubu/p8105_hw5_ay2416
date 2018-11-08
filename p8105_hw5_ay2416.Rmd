@@ -57,7 +57,7 @@ ggplot(tidy_data, aes(x = week, y = value, color = id, group = id)) + geom_point
 ```
 
 
-Problem 2
+## Problem 2
 
 ```{r}
 hom_df = read_csv("data/homicide-data.csv", col_names = TRUE) %>% 
@@ -83,18 +83,97 @@ summ_df = hom_df %>%
 For the city of Baltimore, MD, use the prop.test function to estimate the proportion of homicides that are unsolved; save the output of prop.test as an R object, apply the broom::tidy to this object and pull the estimated proportion and confidence intervals from the resulting tidy dataframe.
 
 ```{r}
-y = x %>% filter(city_state == "Baltimore, MD")
+baltimore = summ_df %>% filter(city_state == "Baltimore, MD")
 
-prop.test(y[[2]], y[[4]]) %>% broom::tidy() %>% .[1:6] %>% 
-  select(-statistic, -p.value, -parameter) %>% 
-  mutate(city_state = y$city_state) %>% 
+prop.test(baltimore[[3]], baltimore[[4]]) %>% broom::tidy() %>% .[c(1, 5, 6)] %>% 
+  mutate(city_state = baltimore$city_state) %>% 
   select(city_state, everything())
-  
 ```
 
 Now run prop.test for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of purrr::map, purrr::map2, list columns and  unnest as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
 
 Writing a function for `prop.test`
+
+First creating a nested dataset 
+
+```{r}
+
+nested_summary = nest(summ_df, closed_by_arrest:total)
+
+# Testing the indices of my nested data
+
+#taking the second row(city), and then 2nd variable in the nested data
+x = as.numeric(pull(nested_summary$data[[2]][2]))
+
+#taking the second row(city), and then 3rd variable in the nested data
+b = as.numeric(pull(nest_df$data[[2]][3]))
+
+#computing proportion and CI
+prop.test(x, b) %>% broom::tidy() %>% .[c(1, 5, 6)] %>% 
+  mutate(city_state = nest_df$city_state[2]) %>% 
+  select(city_state, everything())
+
+#Function with just one input determing the row of data. `Try` added to overlook errors
+
+prop_test_fx = function(i){
+  
+  x = as.numeric(pull(nested_summary$data[[i]][2]))
+
+  b = as.numeric(pull(nested_summary$data[[i]][3]))
+  
+  try(data.frame(prop.test(x, b) %>% 
+                   broom::tidy() %>% 
+                   .[1:6] %>% 
+                   select(-statistic, -p.value, -parameter) %>% 
+                   mutate(city_state = nested_summary$city_state[i]) %>% 
+                   select(city_state, everything())), silent = TRUE)
+
+}
+
+
+```
+
+Iteration
+
+```{r}
+#list of rows to iterate
+
+num = 1:51
+
+ci = map(.x = num, ~ prop_test_fx(.x))
+
+city_and_state = as.tibble(summ_df$city_state)
+
+ci_for_states = city_and_state %>% mutate(data = ci) %>% filter(value != "Tulsa, AL")
+
+unnested_ci_for_states = bind_rows(ci_for_states) %>% unnest(ci_for_states$data)
+
+```
+
+-------------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+
+
+```{r}
+prop_test_fx = function(data, i){
+  
+  y = summ_df[seq(i, i),]
+  
+  x_out = prop.test(y[[3]], y[[4]]) %>% broom::tidy() %>% .[1:6] %>% 
+  select(-statistic, -p.value, -parameter) %>% 
+  mutate(city_state = y$city_state) %>% 
+  select(city_state, everything())
+  
+  list(x_out)
+  
+}
+
+nums = list(1:51)
+
+
+map2(summ_df, nums, prop_test_fx)
+```
+
 
 ```{r}
 prop_test_fx = function(data, state){
@@ -120,89 +199,6 @@ Applying the function
 ```{r}
 prop_test_fx(data = summ_df, state = "Baltimore, MD")
 ```
-
-```{r}
-
-x = as.numeric(pull(nest_df$data[[2]][2]))
-
-b = as.numeric(pull(nest_df$data[[2]][3]))
-
-prop.test(x, b)%>% broom::tidy() %>% .[1:6] %>% 
-  select(-statistic, -p.value, -parameter) %>% 
-  mutate(city_state = nest_df$city_state[2]) %>% 
-  select(city_state, everything())
-
-
-
-prop_test_fx = function(i){
-  
-  x = as.numeric(pull(nest_df$data[[i]][2]))
-
-  b = as.numeric(pull(nest_df$data[[i]][3]))
-  
-  try(data.frame(prop.test(x, b) %>% broom::tidy() %>% .[1:6] %>% 
-  select(-statistic, -p.value, -parameter) %>% 
-  mutate(city_state = nest_df$city_state[i]) %>% 
-  select(city_state, everything())), silent = TRUE)
-
-}
-
-
-nums = 1:51
-
-final = map(nums, prop_test_fx)
-
-final[-!is.character(final)] %>% View
-
-final[-49] %>% View
-
-final %>% .[[49]]
-
-final[10] <- NULL
-
-XXX = try(bind_rows(final), silent = TRUE)
-
-
-foo <- list(df1 = data.frame(A = rnorm(3), B = rnorm(3)),
-            df2 = data.frame(C = rnorm(3), B = rnorm(3)),
-            df3 = data.frame(C = rnorm(3), A = rnorm(3)))
-
-bind_rows(foo)
-states %>% mutate(final = map(nums, prop_test_fx)) %>% View
-
-final1 = bind_rows(final)
-```
-
-
-```{r}
-map2(summ_df, states[x], prop_test_fx)
-```
-
-
-
-
-
-```{r}
-prop_test_fx = function(data, i){
-  
-  y = summ_df[seq(i, i),]
-  
-  x_out = prop.test(y[[3]], y[[4]]) %>% broom::tidy() %>% .[1:6] %>% 
-  select(-statistic, -p.value, -parameter) %>% 
-  mutate(city_state = y$city_state) %>% 
-  select(city_state, everything())
-  
-  list(x_out)
-  
-}
-
-nums = list(1:51)
-
-
-map2(summ_df, nums, prop_test_fx)
-```
-
-
 
 
 
