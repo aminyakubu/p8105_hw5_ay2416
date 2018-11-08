@@ -2,7 +2,7 @@
 title: "Homework 5"
 author: "Amin Yakubu"
 date: "11/6/2018"
-output: github_document
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -107,11 +107,11 @@ nested_summary = nest(summ_df, closed_by_arrest:total)
 x = as.numeric(pull(nested_summary$data[[2]][2]))
 
 #taking the second row(city), and then 3rd variable in the nested data
-b = as.numeric(pull(nest_df$data[[2]][3]))
+b = as.numeric(pull(nested_summary$data[[2]][3]))
 
 #computing proportion and CI
 prop.test(x, b) %>% broom::tidy() %>% .[c(1, 5, 6)] %>% 
-  mutate(city_state = nest_df$city_state[2]) %>% 
+  mutate(city_state = nested_summary$city_state[2]) %>% 
   select(city_state, everything())
 
 #Function with just one input determing the row of data. `Try` added to overlook errors
@@ -170,8 +170,8 @@ ggplotly(error_plot)
 -------------------------------------------------------------------------------
 -----------------------------------------------------------------------------
 
+#############
 
-```{r}
 prop_test_fx = function(data, i){
   
   y = summ_df[seq(i, i),]
@@ -189,10 +189,8 @@ nums = list(1:51)
 
 
 map2(summ_df, nums, prop_test_fx)
-```
 
 
-```{r}
 prop_test_fx = function(data, state){
   
   y = data %>% filter(city_state == "state")
@@ -204,18 +202,13 @@ prop_test_fx = function(data, state){
   
   list(x_out)
   
-}
 
 states <- as.tibble(summ_df$city_state)
 
 map2(summ_df, states, prop_test_fx)
-```
 
-Applying the function
 
-```{r}
 prop_test_fx(data = summ_df, state = "Baltimore, MD")
-```
 
 
 
