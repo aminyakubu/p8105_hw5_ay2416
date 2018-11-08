@@ -2,7 +2,7 @@
 title: "Homework 5"
 author: "Amin Yakubu"
 date: "11/6/2018"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -156,7 +156,7 @@ Create a plot that shows the estimates and CIs for each city – check out geom_
 unnested_ci_for_states %>% 
   mutate(city_state = factor(city_state, estimate))
 
-error_plot = ggplot(unnested_ci_for_states, aes(x = reorder(city_state, estimate), y = estimate )) + 
+ggplot(unnested_ci_for_states, aes(x = reorder(city_state, estimate), y = estimate )) + 
   geom_point() + geom_errorbar(aes(ymin = conf_low, ymax = conf_high)) + 
   theme(axis.text.x = element_text(angle = 80, hjust = 1, size = 8)) +
   labs(
@@ -164,7 +164,6 @@ error_plot = ggplot(unnested_ci_for_states, aes(x = reorder(city_state, estimate
     y = "Proportion (95% Confidence interval)"
   )
 
-ggplotly(error_plot)
 ```
 
 -------------------------------------------------------------------------------
