@@ -33,7 +33,6 @@ read_fx = function(data){
   read_csv(file = data)
   
 }
-
 ```
 
 Now iterating using `map` function to read all the csv files and cleaning the data
@@ -102,7 +101,6 @@ prop_test = function(data_table){
     broom::tidy() %>% 
     select(estimate, conf.low, conf.high), silent = TRUE)
 }
-
 ```
 
 #### Iteration
@@ -116,7 +114,6 @@ unnested_ci_for_states = summ_df %>% group_by(city_state) %>% nest() %>%
 #### Creating a plot that shows the estimates and CIs for each city 
 
 ```{r}
-
 ggplot(unnested_ci_for_states, aes(x = city_state, y = estimate )) + 
   geom_point() + geom_errorbar(aes(ymin = conf_low, ymax = conf_high)) + 
   theme(axis.text.x = element_text(angle = 80, hjust = 1, size = 8)) +
@@ -124,7 +121,6 @@ ggplot(unnested_ci_for_states, aes(x = city_state, y = estimate )) +
     x = "City, State",
     y = "Proportion (95% Confidence interval)"
   )
-
 ```
 
 
