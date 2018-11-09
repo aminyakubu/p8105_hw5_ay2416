@@ -109,8 +109,10 @@ prop_test = function(var_numerator, var_denominator) {
 ```{r}
 unnested_ci_for_states = summ_df %>% 
   mutate(estimate_ci = map2(no_arrest, total, prop_test)) %>% 
-  filter(city_state != "Tulsa, AL") %>% unnest() %>% 
-  janitor::clean_names() %>% ungroup() %>%  
+  filter(city_state != "Tulsa, AL") %>% 
+  unnest() %>% 
+  janitor::clean_names() %>% 
+  ungroup() %>%  
   mutate(city_state = reorder(city_state, estimate))
 
 ```
