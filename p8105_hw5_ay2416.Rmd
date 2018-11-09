@@ -24,21 +24,11 @@ paths_and_names = tibble(filepath = list.files("./data/", pattern = "*.csv", ful
                          filename = basename(filepath))
 ```
 
-Writing function to read the data
-
-```{r}
-read_fx = function(data){
-  
-  read_csv(file = data)
-  
-}
-```
-
 Now iterating using `map` function to read all the csv files and cleaning the data
 
 ```{r, message = FALSE}
 
-df = paths_and_names %>% mutate(data =  purrr::map(paths_and_names$filepath, read_fx)) %>% 
+df = paths_and_names %>% mutate(data =  map(filepath, read_csv)) %>% 
   unnest() %>% 
   select(-filepath) %>% 
   gather(key = week, value = value, week_1:week_8) %>% 
@@ -101,7 +91,7 @@ prop_test = function(var_numerator, var_denominator) {
     broom::tidy() %>% 
     select(estimate, conf.low, conf.high), silent = TRUE)
   
-}
+} 
 ```
 
 #### Iteration
