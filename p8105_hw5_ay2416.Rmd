@@ -12,7 +12,6 @@ knitr::opts_chunk$set(message = FALSE)
 
 ```{r}
 library(tidyverse)
-library(plotly)
 ```
 
 
@@ -92,23 +91,28 @@ baltimore_prop
 
 Now run prop.test for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of purrr::map, purrr::map2, list columns and  unnest as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
 
+
 #### Writing a function to do `prop.test` and clean the data
 
 ```{r}
-prop_test = function(data_table){
+prop_test = function(var_numerator, var_denominator) {
   
-  try(prop.test(data_table$no_arrest, data_table$total) %>% 
+  try(prop.test(var_numerator, var_denominator) %>% 
     broom::tidy() %>% 
     select(estimate, conf.low, conf.high), silent = TRUE)
+  
 }
 ```
 
 #### Iteration
 
 ```{r}
-unnested_ci_for_states = summ_df %>% group_by(city_state) %>% nest() %>% 
-  mutate(estimate_ci = map(data, prop_test)) %>% filter(city_state != "Tulsa, AL") %>% unnest() %>% 
-  mutate(city_state = reorder(city_state, estimate)) %>% janitor::clean_names()
+unnested_ci_for_states = summ_df %>% 
+  mutate(estimate_ci = map2(no_arrest, total, prop_test)) %>% 
+  filter(city_state != "Tulsa, AL") %>% unnest() %>% 
+  janitor::clean_names() %>% ungroup() %>%  
+  mutate(city_state = reorder(city_state, estimate))
+
 ```
 
 #### Creating a plot that shows the estimates and CIs for each city 
